@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DualPay – Калкулатор за ресто</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@600&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+body {
+  font-family: 'Montserrat', sans-serif;
+  background: #f2f8ff;
+  overflow: hidden;
+}
+
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(12, 1fr);
+  pointer-events: none;
+  opacity: 0.25;
+}
+
+.bg-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  animation: float 18s ease-in-out infinite;
+}
+
+.offset {
+  transform: translateX(16px);
+}
+
+@keyframes float {
+  0%   { transform: translate(0,0) rotate(0deg) scale(1); }
+  50%  { transform: translate(12px,-12px) rotate(6deg) scale(1.15); }
+  100% { transform: translate(0,0) rotate(0deg) scale(1); }
+}
+</style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center relative">
+
+<!-- Background -->
+<div class="bg-grid">
+<script>
+const grid = document.currentScript.parentElement;
+const cols = 8;
+const rows = 12;
+
+for (let r = 0; r < rows; r++) {
+  for (let c = 0; c < cols; c++) {
+    const el = document.createElement('div');
+    el.className = 'bg-symbol' + (r % 2 ? ' offset' : '');
+    el.textContent = (r + c) % 2 === 0 ? '€' : 'лв';
+    el.style.animationDelay = ((r * cols + c) * 0.2) + 's';
+    grid.appendChild(el);
+  }
+}
+</script>
+</div>
+
+<!-- APP -->
+<main class="relative w-full max-w-md mx-auto p-6 rounded-3xl bg-white/70 backdrop-blur-xl shadow-2xl">
+
+<!-- Logo -->
+<div class="flex justify-center mb-3">
+  <div class="bg-[#0a3d62] text-white px-6 py-3 rounded-2xl font-[Comfortaa] text-xl shadow-lg">
+    € ⇄ лв
+  </div>
+</div>
+
+<!-- INSTALL BUTTON -->
+<div class="flex justify-center mb-4">
+  <button id="installBtn"
+    class="hidden px-5 py-2 rounded-xl bg-[#0a3d62] text-white text-sm font-semibold shadow-lg">
+    ⬇ Инсталирай приложението
+  </button>
+</div>
+
+<h1 class="text-center text-2xl mb-5 font-[Comfortaa] text-[#0a3d62]">
+  Калкулатор за ресто
+</h1>
+
+<!-- Amount Due -->
+<div class="mb-4">
+<label class="text-sm font-semibold">Сума за плащане</label>
+<div class="flex gap-2 mt-1">
+  <input id="due" type="number" class="w-full p-3 rounded-xl bg-[#fff7cc]" placeholder="0.00">
+  <select id="dueCur" class="p-3 rounded-xl">
+    <option value="BGN">BGN</option>
+    <option value="EUR">EUR</option>
+  </select>
+</div>
+</div>
+
+<!-- Paid -->
+<div class="grid grid-cols-2 gap-3 mb-4">
+<div>
+  <label class="text-sm font-semibold">Платено в лв</label>
+  <input id="paidBGN" type="number" class="w-full p-3 rounded-xl bg-white" placeholder="0.00">
+</div>
+<div>
+  <label class="text-sm font-semibold">Платено в €</label>
+  <input id="paidEUR" type="number" class="w-full p-3 rounded-xl bg-white" placeholder="0.00">
+</div>
+</div>
+
+<!-- Error -->
+<div id="error" class="hidden mb-4 p-3 rounded-xl bg-red-100 text-red-700 text-sm">
+Недостатъчно платена сума
+</div>
+
+<!-- Result -->
+<div id="result" class="hidden transition-all">
+<div class="flex justify-center mb-3">
+  <button onclick="setOutput('BGN')" class="px-4 py-2 bg-[#0a3d62] text-white rounded-l-xl">BGN</button>
+  <button onclick="setOutput('EUR')" class="px-4 py-2 bg-[#0a3d62] text-white rounded-r-xl">EUR</button>
+</div>
+
+<div class="text-center text-2xl font-semibold">
+  <span id="changeMain"></span>
+</div>
+<div class="text-center text-sm opacity-70">
+  ≈ <span id="changeAlt"></span>
+</div>
+</div>
+
+<!-- Footer -->
+<footer class="mt-6 text-center text-xs opacity-70">
+Курс: 1 EUR = 1.95583 BGN<br>
+© Мартин Шопов
+</footer>
+
+</main>
+
+<script>
+/* ======================
+   LOGIC
+====================== */
+const RATE = 1.95583;
+let output = 'BGN';
+
+const due = document.getElementById('due');
+const dueCur = document.getElementById('dueCur');
+const paidBGN = document.getElementById('paidBGN');
+const paidEUR = document.getElementById('paidEUR');
+const error = document.getElementById('error');
+const result = document.getElementById('result');
+const changeMain = document.getElementById('changeMain');
+const changeAlt = document.getElementById('changeAlt');
+
+function calculate() {
+  const dueVal = Number(due.value) || 0;
+  const dueBGN = dueCur.value === 'EUR' ? dueVal * RATE : dueVal;
+  const paid = (Number(paidBGN.value) || 0) + (Number(paidEUR.value) || 0) * RATE;
+  const diff = paid - dueBGN;
+
+  if (diff < 0) {
+    error.classList.remove('hidden');
+    result.classList.add('hidden');
+    return;
+  }
+
+  error.classList.add('hidden');
+  result.classList.remove('hidden');
+
+  if (output === 'BGN') {
+    changeMain.textContent = diff.toFixed(2) + ' лв';
+    changeAlt.textContent = (diff / RATE).toFixed(2) + ' €';
+  } else {
+    changeMain.textContent = (diff / RATE).toFixed(2) + ' €';
+    changeAlt.textContent = diff.toFixed(2) + ' лв';
+  }
+}
+
+function setOutput(c) {
+  output = c;
+  calculate();
+}
+
+document.querySelectorAll('input, select')
+.forEach(el => el.addEventListener('input', calculate));
+
+/* ======================
+   ICON GENERATION
+====================== */
+function generateIcon(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#0a3d62';
+  ctx.fillRect(0,0,size,size);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `${size / 6}px Comfortaa`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('DualPay', size / 2, size / 2);
+
+  return canvas.toDataURL('image/png');
+}
+
+const icon192 = generateIcon(192);
+const icon512 = generateIcon(512);
+
+/* ======================
+   MANIFEST
+====================== */
+const manifest = {
+  name: 'DualPay',
+  short_name: 'DualPay',
+  start_url: '.',
+  display: 'standalone',
+  background_color: '#f2f8ff',
+  theme_color: '#0a3d62',
+  icons: [
+    { src: icon192, sizes: '192x192', type: 'image/png' },
+    { src: icon512, sizes: '512x512', type: 'image/png' }
+  ]
+};
+
+const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+const manifestURL = URL.createObjectURL(manifestBlob);
+
+const link = document.createElement('link');
+link.rel = 'manifest';
+link.href = manifestURL;
+document.head.appendChild(link);
+
+/* ======================
+   SERVICE WORKER
+====================== */
+const swCode = `
+self.addEventListener('install', e => self.skipWaiting());
+self.addEventListener('fetch', () => {});
+`;
+
+const swBlob = new Blob([swCode], { type: 'application/javascript' });
+const swURL = URL.createObjectURL(swBlob);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register(swURL);
+}
+
+/* ======================
+   INSTALL PROMPT
+====================== */
+let deferredPrompt;
+const installBtn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  installBtn.classList.remove('hidden');
+});
+
+installBtn.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') {
+    installBtn.classList.add('hidden');
+  }
+  deferredPrompt = null;
+});
+
+/* iOS helper */
+if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+  installBtn.classList.remove('hidden');
+  installBtn.textContent = 'Добави към Home Screen';
+  installBtn.onclick = () => {
+    alert(
+      'На iPhone:\n\n' +
+      '1. Натисни бутона Share\n' +
+      '2. Избери "Add to Home Screen"'
+    );
+  };
+}
+</script>
+
+</body>
+</html>
